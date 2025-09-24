@@ -1,3 +1,4 @@
+#! /usr/bin/env node
 import { program } from "commander";
 import { handleExit } from "./utils/exit";
 import * as fs from 'fs';
