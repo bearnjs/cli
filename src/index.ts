@@ -1,171 +1,127 @@
 import { program } from "commander";
+import { handleExit } from "./utils/exit";
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+import { promisify } from 'util';
+import { exec } from 'child_process';
 import * as prompts from '@clack/prompts';
 
-
-const handleExit = (message: string) => {
-    console.log(`\nOperation ${message}`);
-    process.exit(0);
-};
+const execAsync = promisify(exec);
 
 process.on('SIGINT', () => handleExit('cancelled'));
 process.on('SIGTSTP', () => handleExit('paused'));
 
-
-type QuestionType = 'text' | 'select' | 'confirm';
-
-interface BaseQuestion {
-    type: QuestionType;
-    name: string;
-    message: string;
-}
-
-interface TextQuestion extends BaseQuestion {
-    type: 'text';
-    validate?: (value: string) => boolean | string;
-}
-
-interface SelectQuestion extends BaseQuestion {
-    type: 'select';
-    options: Array<{ value: string; label: string }>;
-}
-
-interface ConfirmQuestion extends BaseQuestion {
-    type: 'confirm';
-}
-
-type Question = TextQuestion | SelectQuestion | ConfirmQuestion;
-
-const questions: Question[] = [
+const REPO_URL = 'https://github.com/himonshuuu/bearn-cli.git';
+const templates = [
     {
-        type: "text",
-        name: "name",
-        message: "Project name: ",
-        validate: (value: string) => value ? true : "Project name is required"
+        value: 'ts-traditional',
+        label: 'TypeScript'
     },
     {
-        type: "select",
-        name: "packageManager",
-        message: "Package manager",
-        options: [
-            { value: "npm", label: "npm" },
-            { value: "yarn", label: "yarn" },
-            { value: "pnpm", label: "pnpm" },
-            { value: "bun", label: "bun" }
-        ]
+        value: 'js-traditional',
+        label: 'JavaScript'
     },
     {
-        type: "select",
-        name: "language",
-        message: "Language",
-        options: [
-            { value: "TypeScript", label: "TypeScript" },
-            { value: "JavaScript", label: "JavaScript" }
-        ]
+        value: 'ts-decorator',
+        label: 'TypeScript with decorators'
     },
-    {
-        type: "confirm",
-        name: "setupLinting",
-        message: "Do you want ESLint & Prettier setup?"
-    },
-    {
-        type: "confirm",
-        name: "dockerSupport",
-        message: "Do you want Docker support?"
-    },
-    {
-        type: "select",
-        name: "envConfig",
-        message: "Environment config style",
-        options: [
-            { value: ".env", label: ".env" },
-            { value: "JSON", label: "JSON" },
-            { value: "YAML", label: "YAML" }
-        ]
-    },
-    {
-        type: "select",
-        name: "routingStyle",
-        message: "Routing style",
-        options: [
-            { value: "file-based", label: "file-based" },
-            { value: "decorators", label: "decorators" }
-        ]
-    },
-    {
-        type: "select",
-        name: "orm",
-        message: "ORM integration",
-        options: [
-            { value: "Prisma", label: "Prisma" },
-            { value: "TypeORM", label: "TypeORM" },
-            { value: "None", label: "None" }
-        ]
-    },
-    {
-        type: "confirm",
-        name: "initGit",
-        message: "Initialize git repository?"
-    },
-    {
-        type: "confirm",
-        name: "installDeps",
-        message: "Install dependencies now?"
-    }
 ];
-
-const promptQuestion = async (question: Question): Promise<any> => {
-    switch (question.type) {
-        case 'text':
-            return prompts.text({
-                message: question.message,
-                validate: question.validate ? (value: string) => {
-                    const result = question.validate!(value);
-                    return result === true ? undefined : result as string | Error | undefined;
-                } : undefined
-            });
-        case 'select':
-            return prompts.select({
-                message: question.message,
-                options: question.options
-            });
-        case 'confirm':
-            return prompts.confirm({
-                message: question.message
-            });
-    }
-};
 
 const init = async (projectName?: string) => {
     try {
         console.log('Welcome to Bearn CLI');
 
-        const answers: Record<string, any> = {};
-        if (projectName) {
-            answers.name = projectName;
-            console.log(`Project name provided: ${projectName}`);
-        }
+        if (!projectName) {
+            const response = await prompts.text({
+                message: 'Project name',
+                validate: (name: string): string | undefined => {
+                    if (!name) {
+                        return 'Project name is required';
+                    }
+                    if (fs.existsSync(name)) {
+                        return 'Directory already exists';
+                    }
+                    if (!/^[a-zA-Z0-9-_]+$/.test(name)) {
+                        return 'Project name can only contain letters, numbers, dashes and underscores';
+                    }
+                    return undefined;
+                }
+            });
 
-        for (const question of questions) {
-            if (question.name === 'name' && projectName) {
-                continue;
-            }
-
-            const answer = await promptQuestion(question);
-
-            if (prompts.isCancel(answer)) {
+            if (prompts.isCancel(response)) {
                 handleExit('cancelled');
             }
 
-            answers[question.name] = answer;
+            projectName = response as string;
         }
 
-        console.log('\nProject configuration:');
-        console.log(JSON.stringify(answers, null, 2));
-        console.log('\nTODO: Implementation of project scaffolding based on answers');
-        console.log('Setup complete!');
+        if (fs.existsSync(projectName)) {
+            console.error('Error: Directory already exists');
+            process.exit(1);
+        }
+
+        fs.mkdirSync(projectName);
+        process.chdir(projectName);
+
+        const tmpDir = path.join(os.tmpdir(), 'bearn-cli-' + Math.random().toString(36).substring(7));
+        fs.mkdirSync(tmpDir, { recursive: true });
+
+        console.log('Fetching templates...');
+        try {
+            await execAsync(`git clone --depth 1 ${REPO_URL} "${tmpDir}"`);
+        } catch (error) {
+            console.error('Failed to clone repository:', error);
+            fs.rmSync(projectName, { recursive: true, force: true });
+            process.exit(1);
+        }
+
+        const template = await prompts.select({
+            message: 'Select a template',
+            options: templates
+        });
+
+        if (prompts.isCancel(template)) {
+            fs.rmSync(tmpDir, { recursive: true, force: true });
+            fs.rmSync(projectName, { recursive: true, force: true });
+            handleExit('cancelled');
+        }
+
+        try {
+            fs.cpSync(path.join(tmpDir, 'examples', template as string), '.', { recursive: true });
+        } catch (error) {
+            console.error('Failed to copy template:', error);
+            fs.rmSync(tmpDir, { recursive: true, force: true });
+            fs.rmSync(projectName, { recursive: true, force: true });
+            process.exit(1);
+        }
+
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+
+        const pkgPath = path.join(process.cwd(), 'package.json');
+        if (fs.existsSync(pkgPath)) {
+            try {
+                const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+                pkg.name = projectName;
+                fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
+            } catch (error) {
+                console.error('Failed to update package.json:', error);
+                fs.rmSync(projectName, { recursive: true, force: true });
+                process.exit(1);
+            }
+        }
+
+        console.log('\nSetup complete! 🎉');
+        console.log(`\nNext steps:`);
+        console.log(`  cd ${projectName}`);
+        console.log(`  npm install`);
+        console.log(`  npm run dev`);
 
     } catch (error) {
         console.error('An unexpected error occurred:', error);
+        if (projectName && fs.existsSync(projectName)) {
+            fs.rmSync(projectName, { recursive: true, force: true });
+        }
         process.exit(1);
     }
 };
