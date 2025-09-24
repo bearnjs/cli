@@ -88,7 +88,7 @@ const init = async (projectName?: string) => {
         }
 
         try {
-            fs.cpSync(path.join(tmpDir, 'examples', template as string), '.', { recursive: true });
+            fs.cpSync(path.join(tmpDir, 'templates', template as string), '.', { recursive: true });
         } catch (error) {
             console.error('Failed to copy template:', error);
             fs.rmSync(tmpDir, { recursive: true, force: true });
