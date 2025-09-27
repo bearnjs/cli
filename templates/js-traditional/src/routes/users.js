@@ -1,4 +1,4 @@
-import { createRouter, validate } from "@bearn/rest";
+import { createRouter, validate } from "@bearnjs/rest";
 import { z } from "zod";
 import { createUser, getUsers } from "../controllers/users.js";
 

@@ -1,4 +1,4 @@
-import createApp from "@bearn/rest";
+import createApp from "@bearnjs/rest";
 import { usersRouter } from "./routes/users.js";
 
 const app = createApp({
