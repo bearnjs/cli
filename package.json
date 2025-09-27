@@ -1,6 +1,6 @@
 {
     "name": "@bearnjs/cli",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "description": "Bearn CLI to scaffold your backend project",
     "keywords": [
         "cli",
@@ -20,6 +20,9 @@
     "bin": {
         "bearnjs": "./dist/index.js"
     },
+    "files": [
+        "dist"
+    ],
     "preferGlobal": true,
     "scripts": {
         "test": "node dist/index.js",
