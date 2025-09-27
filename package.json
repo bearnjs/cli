@@ -1,5 +1,5 @@
 {
-    "name": "@bearn/cli",
+    "name": "@bearnjs/cli",
     "version": "0.0.2",
     "description": "Bearn CLI to scaffold your backend project",
     "keywords": [
@@ -11,14 +11,14 @@
     ],
     "repository": {
         "type": "git",
-        "url": "https://github.com/himonshuuu/bearn-cli"
+        "url": "https://github.com/bearnjs/cli"
     },
     "license": "MIT",
     "author": "himonshuuu",
     "type": "module",
     "main": "./dist/index.js",
     "bin": {
-        "bearn": "./dist/index.js"
+        "bearnjs": "./dist/index.js"
     },
     "preferGlobal": true,
     "scripts": {
